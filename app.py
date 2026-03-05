@@ -1,4 +1,5 @@
 from flask import Flask, render_template, jsonify, Response, request, redirect, url_for, flash, send_from_directory
+from flask_socketio import SocketIO
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
 from flask_sqlalchemy import SQLAlchemy
@@ -29,6 +30,9 @@ bcrypt = Bcrypt(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+# WebSocket support
+socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins='*')
 
 # Hardware controller (unchanged)
 gate_controller = GateController(mode='direct', servo_pin=18, relay_pin=23, led_active_low=True)
@@ -480,4 +484,4 @@ if __name__ == "__main__":
     print(f"🚪 Gate:      {gate_controller.get_state()}")
     print("="*50 + "\n")
 
-    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
+    socketio.run(app, host="0.0.0.0", port=5000, debug=False, use_reloader=False)
