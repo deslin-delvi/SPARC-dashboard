@@ -203,7 +203,7 @@ async function addCamera() {
     showAlert('success', `✅ Camera "${data.camera.name}" added – stream starting…`);
     bootstrap.Modal.getInstance(document.getElementById('addCameraModal')).hide();
     // Reload after short delay so the new card appears
-    setTimeout(() => location.reload(), 1500);
+    setTimeout(() => { window.location.href = '/cameras'; }, 1500);
   } else {
     showAlert('danger', `❌ ${data.message}`);
   }
@@ -211,17 +211,69 @@ async function addCamera() {
 
 /* ── toggle ───────────────────────────────────────────── */
 async function toggleCamera(camId, currentlyEnabled) {
+  // Kill ONLY this camera's stream
+  const card = document.getElementById(`card-${camId}`);
+  const img  = card ? card.querySelector('img') : null;
+  if (img) img.src = '';
+
   const res  = await fetch(`/cameras/${camId}/toggle`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ enabled: !currentlyEnabled }),
   });
   const data = await res.json();
+
   if (data.status === 'success') {
-    showAlert('success', data.message);
-    setTimeout(() => location.reload(), 800);
+    if (currentlyEnabled) {
+      // ── DISABLING: update only this card, no reload ──
+      if (card) {
+        // Replace img with disabled placeholder
+        const streamDiv = card.querySelector('.position-relative.bg-dark');
+        if (streamDiv) {
+          const existingImg = streamDiv.querySelector('img');
+          if (existingImg) existingImg.remove();
+          if (!streamDiv.querySelector('.d-flex')) {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'd-flex align-items-center justify-content-center';
+            placeholder.style.height = '180px';
+            placeholder.innerHTML = `<span class="text-secondary text-center">
+              <i class="bi bi-camera-video-off fs-1"></i><br>Stream disabled</span>`;
+            streamDiv.insertBefore(placeholder, streamDiv.querySelector('span'));
+          }
+        }
+        // Update badge
+        const badge = document.getElementById(`badge-${camId}`);
+        if (badge) {
+          badge.textContent = 'OFF';
+          badge.className = 'position-absolute top-0 end-0 m-2 badge fs-6 bg-dark';
+        }
+        // Update ENABLED label
+        const enabledLabel = card.querySelector('.card-title .badge');
+        if (enabledLabel) {
+          enabledLabel.textContent = 'DISABLED';
+          enabledLabel.className = 'badge bg-secondary ms-1';
+          enabledLabel.style.fontSize = '.65rem';
+        }
+        // Remove capture button
+        const captureBtn = document.getElementById(`capture-btn-${camId}`);
+        if (captureBtn) captureBtn.remove();
+        // Update toggle button
+        const toggleBtn = card.querySelector('.btn-outline-warning');
+        if (toggleBtn) {
+          toggleBtn.className = toggleBtn.className.replace('btn-outline-warning', 'btn-outline-success');
+          toggleBtn.innerHTML = '<i class="bi bi-play-circle"></i> Enable';
+          toggleBtn.setAttribute('onclick', `toggleCamera(${camId}, false)`);
+        }
+      }
+      showAlert('success', data.message);
+
+    } else {
+      // ── ENABLING: handled by rtsp_camera_enabled socket event ──
+      showAlert('success', data.message);
+    }
   } else {
     showAlert('danger', `❌ ${data.message}`);
+    if (img) img.src = `/cameras/${camId}/feed`;
   }
 }
 
@@ -286,7 +338,67 @@ function showAlert(type, msg) {
   setTimeout(() => area.innerHTML = '', 4000);
 }
 
+// Kill all MJPEG streams when leaving the page
+// Prevents open connections from blocking navigation
+window.addEventListener('beforeunload', () => {
+  document.querySelectorAll('#cameraGrid img').forEach(img => {
+    img.src = '';
+  });
+});
 // Kick off polling on page load
-startPolling();
+window.addEventListener('DOMContentLoaded', () => {
+  startPolling();
+});
+socket.on('rtsp_camera_enabled', (data) => {
+  console.log('📡 rtsp_camera_enabled:', data);
+  const camId = data.camera_id;
+  const card  = document.getElementById(`card-${camId}`);
+  if (!card) return;
+
+  // Replace placeholder with live stream
+  const placeholder = card.querySelector('.d-flex.align-items-center');
+  if (placeholder) {
+    const imgEl = document.createElement('img');
+    imgEl.src       = `/cameras/${camId}/feed`;
+    imgEl.className = 'w-100';
+    imgEl.style     = 'display:block; height:auto;';
+    imgEl.onerror   = () => { imgEl.src = '/static/img/no-signal.png'; };
+    placeholder.replaceWith(imgEl);
+  }
+
+  // Update badge
+  const badge = document.getElementById(`badge-${camId}`);
+  if (badge) {
+    badge.textContent = 'Connecting…';
+    badge.className   = 'position-absolute top-0 end-0 m-2 badge fs-6 bg-secondary';
+  }
+
+  // Update ENABLED label
+  const enabledLabel = card.querySelector('.card-title .badge');
+  if (enabledLabel) {
+    enabledLabel.textContent = 'ENABLED';
+    enabledLabel.className   = 'badge bg-success ms-1';
+    enabledLabel.style.fontSize = '.65rem';
+  }
+
+  // Add capture button
+  const footer = card.querySelector('.card-footer');
+  if (footer && !document.getElementById(`capture-btn-${camId}`)) {
+    const captureBtn = document.createElement('button');
+    captureBtn.className = 'btn btn-sm btn-danger w-100 mb-2 fw-semibold';
+    captureBtn.id        = `capture-btn-${camId}`;
+    captureBtn.setAttribute('onclick', `captureViolation(${camId}, '${data.name}')`);
+    captureBtn.innerHTML = '<i class="bi bi-camera-fill me-1"></i> Capture Violation';
+    footer.insertBefore(captureBtn, footer.firstChild);
+  }
+
+  // Update toggle button
+  const toggleBtn = card.querySelector('.btn-outline-success');
+  if (toggleBtn) {
+    toggleBtn.className = toggleBtn.className.replace('btn-outline-success', 'btn-outline-warning');
+    toggleBtn.innerHTML = '<i class="bi bi-pause-circle"></i> Disable';
+    toggleBtn.setAttribute('onclick', `toggleCamera(${camId}, true)`);
+  }
+});
 </script>
 {% endblock %}

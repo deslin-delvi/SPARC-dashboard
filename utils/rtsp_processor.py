@@ -33,7 +33,7 @@ class RTSPStream:
     logs violations, and exposes the annotated JPEG frame.
     """
 
-    RECONNECT_INTERVAL = 10   # seconds between reconnection attempts
+    RECONNECT_INTERVAL = 5   # seconds between reconnection attempts
     STARTUP_GRACE      = 5.0  # seconds to suppress logging after (re)connect
 
     def __init__(self, camera_id: int, name: str, url: str,
@@ -133,8 +133,8 @@ class RTSPStream:
         """Try to open the RTSP stream; return cap object or None."""
         try:
             cap = cv2.VideoCapture(self.url, cv2.CAP_FFMPEG)
-            # Lower buffer to reduce latency
-            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+            os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp|timeout;60000000"
             cap.set(cv2.CAP_PROP_FRAME_WIDTH,  640)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
@@ -330,10 +330,14 @@ class RTSPManager:
 
     # ── stream control (called from routes) ─────────────────
     def add_stream(self, camera_id: int, name: str, url: str):
-        """Start a new stream (after the DB row has been created)."""
         if camera_id in self._streams:
-            return   # already running
+            return
         self._start_stream(camera_id, name, url)
+        if self.socketio:
+            self.socketio.emit('rtsp_camera_enabled', {
+                "camera_id": camera_id,
+                "name":      name,
+            })
 
     def remove_stream(self, camera_id: int):
         """Stop and remove a stream."""
