@@ -33,7 +33,7 @@ class RTSPStream:
     logs violations, and exposes the annotated JPEG frame.
     """
 
-    RECONNECT_INTERVAL = 5   # seconds between reconnection attempts
+    RECONNECT_INTERVAL = 12   # seconds between reconnection attempts
     STARTUP_GRACE      = 5.0  # seconds to suppress logging after (re)connect
 
     def __init__(self, camera_id: int, name: str, url: str,
@@ -86,6 +86,14 @@ class RTSPStream:
         while self._running:
             cap = self._open_capture()
             if cap is None:
+                # 🔌 Notify frontend stream is offline
+                if self.socketio:
+                    self.socketio.emit('rtsp_status_update', {
+                        "camera_id":   self.camera_id,
+                        "camera_name": self.name,
+                        "ppe_status":  "OFFLINE",
+                        "fps":         0,
+                    })
                 time.sleep(self.RECONNECT_INTERVAL)
                 continue
 
@@ -100,6 +108,14 @@ class RTSPStream:
                 if not ok:
                     print(f"⚠️ Lost connection to {self.name}, reconnecting…")
                     self._connected = False
+                    # 🔌 Notify frontend stream dropped
+                    if self.socketio:
+                        self.socketio.emit('rtsp_status_update', {
+                            "camera_id":   self.camera_id,
+                            "camera_name": self.name,
+                            "ppe_status":  "OFFLINE",
+                            "fps":         0,
+                        })
                     break
                 
                 frame_count += 1

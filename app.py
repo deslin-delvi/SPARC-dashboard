@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, Response, request, redirect, url_for, flash, send_from_directory
+from flask import Flask, render_template, jsonify, Response, request, redirect, url_for, flash, send_from_directory, abort
 from flask_socketio import SocketIO
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
@@ -456,23 +456,28 @@ def all_cameras_status():
 @app.route('/cameras/<int:camera_id>/feed')
 @login_required
 def rtsp_video_feed(camera_id):
-    """
-    MJPEG stream for a specific RTSP camera.
-    Embed in an <img> tag:  <img src="/cameras/3/feed">
-    """
     RTSPCamera.query.get_or_404(camera_id)
 
+    # Wait up to 10s for first frame — if none, return 503 so img onerror fires
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        if rtsp_manager.get_frame(camera_id) is not None:
+            break
+        time.sleep(0.1)
+    else:
+        abort(503)
+
     def generate():
-        placeholder_sent = False
+        consecutive_failures = 0
         while True:
             frame = rtsp_manager.get_frame(camera_id)
             if frame is None:
-                # Stream not ready yet – send a plain placeholder every 0.5s
-                if not placeholder_sent:
-                    placeholder_sent = True
+                consecutive_failures += 1
+                if consecutive_failures > 100:  # ~10 seconds of no frames
+                    return
                 time.sleep(0.1)
                 continue
-            placeholder_sent = False
+            consecutive_failures = 0
             yield (b"--frame\r\n"
                    b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n")
 

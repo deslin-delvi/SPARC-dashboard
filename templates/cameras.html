@@ -29,8 +29,10 @@
         <div class="position-relative bg-dark" style="overflow:hidden; border-radius:.5rem .5rem 0 0; line-height:0;">
           {% if cam.enabled %}
           <img src="{{ url_for('rtsp_video_feed', camera_id=cam.id) }}"
-               class="w-100" style="display:block; height:auto;"
-               onerror="this.src='/static/img/no-signal.png'">
+              class="w-100" style="display:block; height:auto;"
+              data-feed-url="{{ url_for('rtsp_video_feed', camera_id=cam.id) }}"
+              data-cam-id="{{ cam.id }}"
+              onerror="showOfflinePlaceholder(this)">
           {% else %}
           <div class="d-flex align-items-center justify-content-center" style="height:180px;">
             <span class="text-secondary text-center"><i class="bi bi-camera-video-off fs-1"></i><br>Stream disabled</span>
@@ -61,7 +63,6 @@
           </small>
         </div>
 
-        <!-- REPLACE the existing card-footer with this -->
         <div class="card-footer bg-transparent border-0 pb-3 px-3">
 
           <!-- Capture button — only shown when stream is enabled -->
@@ -157,35 +158,60 @@
 
 <script>
 /* ── status polling ───────────────────────────────────── */
-const STATUS_INTERVAL = 3000;   // ms
-
 function startPolling() {
-  setInterval(async () => {
-    try {
-      const res  = await fetch('/cameras/status/all');
-      const data = await res.json();
-
+  fetch('/cameras/status/all')
+    .then(res => res.json())
+    .then(data => {
       for (const [camId, status] of Object.entries(data)) {
-        const badge = document.getElementById(`badge-${camId}`);
-        if (!badge) continue;
-
-        const ppe = status.ppe_status || 'UNKNOWN';
-        badge.textContent = ppe + (status.fps ? ` | ${status.fps} fps` : '');
-
-        badge.className = 'position-absolute top-0 end-0 m-2 badge fs-6 ' +
-          (ppe === 'OK'      ? 'bg-success' :
-           ppe === 'NOT_OK'  ? 'bg-danger'  :
-           ppe === 'OFFLINE' ? 'bg-dark'    : 'bg-secondary');
+        updateCameraBadge(camId, status);
       }
-    } catch (e) { /* ignore transient errors */ }
-  }, STATUS_INTERVAL);
+    })
+    .catch(e => console.error('Error loading initial camera status:', e));
+
+  socket.on('rtsp_status_update', (data) => {
+    console.log('📡 rtsp_status_update received:', data);
+    updateCameraBadge(data.camera_id, data);
+  });
+}
+
+function updateCameraBadge(camId, status) {
+  const badge = document.getElementById(`badge-${camId}`);
+  if (!badge) return;
+
+  const ppe = status.ppe_status || 'UNKNOWN';
+  badge.textContent = ppe + (status.fps ? ` | ${status.fps} fps` : '');
+  badge.className = 'position-absolute top-0 end-0 m-2 badge fs-6 ' +
+    (ppe === 'OK'      ? 'bg-success' :
+     ppe === 'NOT_OK'  ? 'bg-danger'  :
+     ppe === 'OFFLINE' ? 'bg-dark'    : 'bg-secondary');
+
+  const img = document.querySelector(`#card-${camId} img`);
+  if (!img) return;
+
+  if (ppe === 'OFFLINE') {
+    showOfflinePlaceholder(img);
+  } else {
+    const parent = document.querySelector(`#card-${camId} .position-relative`);
+    if (!parent) return;
+    const placeholder = parent.querySelector('.offline-placeholder');
+    if (placeholder) {
+      const feedUrl = placeholder.dataset.feedUrl;
+      const imgEl = document.createElement('img');
+      imgEl.src = feedUrl;
+      imgEl.className = 'w-100';
+      imgEl.style = 'display:block; height:auto;';
+      imgEl.dataset.feedUrl = feedUrl;
+      imgEl.onerror = () => showOfflinePlaceholder(imgEl);
+      placeholder.replaceWith(imgEl);
+    }
+  }
 }
 
 /* ── add camera ───────────────────────────────────────── */
 async function addCamera() {
   const name     = document.getElementById('camName').value.trim();
   const url      = document.getElementById('camUrl').value.trim();
-  const location = document.getElementById('camLocation').value.trim();
+  const camLocationVal = document.getElementById('camLocation').value.trim();
 
   if (!name || !url) {
     showAlert('danger', 'Camera name and URL are required.');
@@ -195,7 +221,7 @@ async function addCamera() {
   const res  = await fetch('/cameras/add', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ name, url, location }),
+    body: JSON.stringify({ name, url, location: camLocationVal }),
   });
   const data = await res.json();
 
@@ -282,6 +308,10 @@ async function deleteCamera(camId, camName) {
   if (!confirm(`Remove camera "${camName}"?\nThe stream will stop and the record will be deleted.`))
     return;
 
+  // Kill this camera's stream before deleting
+  const img = document.querySelector(`#card-${camId} img`);
+  if (img) img.src = '';
+
   const res  = await fetch(`/cameras/${camId}`, { method: 'DELETE' });
   const data = await res.json();
   if (data.status === 'success') {
@@ -327,6 +357,21 @@ async function captureViolation(camId, camName) {
   }
 }
 
+/* ── offline placeholder ──────────────────────────────── */
+function showOfflinePlaceholder(img) {
+  img.onerror = null;
+  const feedUrl = img.src;  // save before replacing
+  
+  const div = document.createElement('div');
+  div.className = 'd-flex align-items-center justify-content-center offline-placeholder bg-dark w-100';
+  div.style.height = '180px';
+  div.dataset.feedUrl = feedUrl;  // store on placeholder for restore later
+  div.innerHTML = `<span class="text-secondary text-center">
+    <i class="bi bi-wifi-off fs-1"></i><br>No Signal</span>`;
+  
+  img.replaceWith(div);  // completely replace img with placeholder
+}
+
 /* ── alert helper ─────────────────────────────────────── */
 function showAlert(type, msg) {
   const area = document.getElementById('alertArea');
@@ -362,7 +407,7 @@ socket.on('rtsp_camera_enabled', (data) => {
     imgEl.src       = `/cameras/${camId}/feed`;
     imgEl.className = 'w-100';
     imgEl.style     = 'display:block; height:auto;';
-    imgEl.onerror   = () => { imgEl.src = '/static/img/no-signal.png'; };
+    imgEl.onerror = () => showOfflinePlaceholder(imgEl);
     placeholder.replaceWith(imgEl);
   }
 
