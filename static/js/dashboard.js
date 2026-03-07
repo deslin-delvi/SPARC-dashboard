@@ -50,10 +50,53 @@ socket.on('new_event', (evt) => {
 
 
 // ─────────────────────────────────────────────────────────────
-// Display helpers  (logic identical to old polling version)
+// Display helpers
 // ─────────────────────────────────────────────────────────────
+
+/**
+ * Update a single PPE checklist row.
+ *
+ * Three states, driven by the YOLO negative-class fields:
+ *   violation  (no_helmet / no_gloves / no_boots detected)
+ *     → red dot  + red  ✕  icon
+ *   present    (helmet / gloves / boots detected, no violation)
+ *     → green dot + green ✓ icon
+ *   unknown    (neither — empty frame / no person)
+ *     → grey dot  + grey  – icon
+ *
+ * The old code only toggled a CSS class on the wrapper div and
+ * never touched the icon elements, so colours never actually changed.
+ */
+function updatePpeItem(el, present, violation) {
+  if (!el) return;
+
+  const dot  = el.querySelector('i:first-child');   // the filled-circle dot
+  const icon = el.querySelector('i:last-child');     // the status icon on the right
+
+  // Strip all possible state classes from both icons
+  const allColors = ['text-success', 'text-danger', 'text-secondary'];
+  const allIcons  = ['bi-check-lg', 'bi-x-lg', 'bi-dash-lg'];
+
+  if (dot)  dot.classList.remove(...allColors);
+  if (icon) { icon.classList.remove(...allColors, ...allIcons); }
+
+  if (violation) {
+    // ❌ PPE missing — person detected WITHOUT this item
+    dot?.classList.add('text-danger');
+    icon?.classList.add('bi-x-lg', 'text-danger');
+  } else if (present) {
+    // ✅ PPE present
+    dot?.classList.add('text-success');
+    icon?.classList.add('bi-check-lg', 'text-success');
+  } else {
+    // ❓ No person / unknown
+    dot?.classList.add('text-secondary');
+    icon?.classList.add('bi-dash-lg', 'text-secondary');
+  }
+}
+
 function updateStatusDisplay(data) {
-  // Main status alert
+  // ── Main status alert ────────────────────────────────────────
   const mainStatus = document.getElementById('main-status');
   if (mainStatus) {
     if (data.ppe_status === 'OK') {
@@ -77,25 +120,26 @@ function updateStatusDisplay(data) {
     }
   }
 
-  // Individual PPE item indicators
-  const helmetEl = document.getElementById('helmet-status');
-  const glovesEl = document.getElementById('gloves-status');
-  const bootsEl  = document.getElementById('boots-status');
+  // ── Individual PPE item rows ─────────────────────────────────
+  // Use the negative-class fields (no_helmet etc.) for accurate violation
+  // detection. Fall back gracefully if backend hasn't sent them yet.
+  updatePpeItem(
+    document.getElementById('helmet-status'),
+    !!data.helmet,
+    !!data.no_helmet
+  );
+  updatePpeItem(
+    document.getElementById('gloves-status'),
+    !!data.gloves,
+    !!data.no_gloves
+  );
+  updatePpeItem(
+    document.getElementById('boots-status'),
+    !!data.boots,
+    !!data.no_boots
+  );
 
-  if (helmetEl) {
-    helmetEl.classList.toggle('ok',  data.helmet);
-    helmetEl.classList.toggle('bad', !data.helmet);
-  }
-  if (glovesEl) {
-    glovesEl.classList.toggle('ok',  data.gloves);
-    glovesEl.classList.toggle('bad', !data.gloves);
-  }
-  if (bootsEl) {
-    bootsEl.classList.toggle('ok',  data.boots);
-    bootsEl.classList.toggle('bad', !data.boots);
-  }
-
-  // Last updated timestamp
+  // ── Last updated timestamp ───────────────────────────────────
   const lastUpdatedEl = document.getElementById('last-updated');
   if (lastUpdatedEl && data.last_updated) {
     lastUpdatedEl.textContent = data.last_updated;
@@ -290,7 +334,7 @@ socket.on('override_update', (data) => {
           cooldownTimer = null;
           cooldownBox.classList.add('d-none');
         } else {
-          cooldownSec.textContent = remaining;
+          cooldownSec.textContent = Math.round(remaining);
         }
       }, 1000);
 

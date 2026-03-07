@@ -33,7 +33,7 @@ class RTSPStream:
     logs violations, and exposes the annotated JPEG frame.
     """
 
-    RECONNECT_INTERVAL = 12   # seconds between reconnection attempts
+    RECONNECT_INTERVAL = 7   # seconds between reconnection attempts
     STARTUP_GRACE      = 5.0  # seconds to suppress logging after (re)connect
 
     def __init__(self, camera_id: int, name: str, url: str,

@@ -24,6 +24,15 @@ class YOLOProcessor:
         # Events + status tracking
         self.events = []
         self.prev_status = "UNKNOWN"
+
+        # Track individual item states to detect changes within the same overall status
+        self.prev_items = {
+            "helmet": False, "gloves": False, "boots": False,
+            "no_helmet": False, "no_gloves": False, "no_boots": False
+        }
+        # Rate-limit UI emits — max 5/sec so socketio.emit() never blocks the YOLO loop
+        self.last_emit_time = 0.0
+        self.EMIT_INTERVAL  = 0.2   # seconds (5 fps for UI updates is plenty)
         
         # 🔧 NEW: Track gate state to detect changes
         self.prev_gate_state = None
@@ -189,7 +198,7 @@ class YOLOProcessor:
         # Determine status
         if has_violation:
             new_status = "NOT_OK"
-        elif helmet and boots:
+        elif helmet:               #NEED TO ADD GLOVES AND BOOTS
             new_status = "OK"
         else:
             # No positive OR negative detections = just background/empty frame
@@ -234,20 +243,29 @@ class YOLOProcessor:
             if self.socketio:
                 self.socketio.emit('new_event', event)
 
-        # 🔌 WebSocket: push full PPE status on every change
-        if new_status != self.prev_status:
+        # 🔌 WebSocket: push full PPE status — rate-limited to EMIT_INTERVAL
+        # Emitting every frame blocks the YOLO loop via threading lock acquisition
+        current_items = {
+            "helmet": helmet, "gloves": gloves, "boots": boots,
+            "no_helmet": no_helmet, "no_gloves": no_gloves, "no_boots": no_boots
+        }
+        state_changed = new_status != self.prev_status or current_items != self.prev_items
+        now = time.time()
+        if state_changed and (now - self.last_emit_time) >= self.EMIT_INTERVAL:
             if self.socketio:
                 self.socketio.emit('ppe_update', {
-                    "ppe_status":  new_status,
-                    "helmet":      helmet,
-                    "gloves":      gloves,
-                    "boots":       boots,
-                    "no_helmet":   no_helmet,
-                    "no_gloves":   no_gloves,
-                    "no_boots":    no_boots,
+                    "ppe_status":    new_status,
+                    "helmet":        helmet,
+                    "gloves":        gloves,
+                    "boots":         boots,
+                    "no_helmet":     no_helmet,
+                    "no_gloves":     no_gloves,
+                    "no_boots":      no_boots,
                     "has_violation": has_violation,
-                    "last_updated": datetime.now().strftime('%H:%M:%S')
+                    "last_updated":  datetime.now().strftime('%H:%M:%S')
                 })
+            self.prev_items    = current_items
+            self.last_emit_time = now
 
         self.prev_status = new_status
         
@@ -291,34 +309,63 @@ class YOLOProcessor:
         self.running = True
         print(f"⏳ YOLO processor starting with {self.startup_grace_period}s grace period...")
         print(f"📸 Violations ONLY captured on: Manual Override + Gate State Changes")
-        
-        frame_count = 0
+
+        self.raw_frame = None
+        self.last_results = None
+        self.stable_results = None
+        self.stable_count = 0
+        STABILITY_FRAMES = 3
+
+        # Thread 1 — capture only, no YOLO
+        def capture_loop():
+            while self.running:
+                ok, frame = self.cap.read()
+                if ok:
+                    self.raw_frame = frame
+                else:
+                    time.sleep(0.05)
+
+        capture_thread = threading.Thread(target=capture_loop, daemon=True)
+        capture_thread.start()
+
+        # Thread 2 — inference loop
         prev_time = time.time()
-        
+
         while self.running:
-            ok, frame = self.cap.read()
-            if not ok:
-                time.sleep(0.05)
+            if self.raw_frame is None:
+                time.sleep(0.01)
                 continue
-            """
-            frame_count += 1
-            if frame_count % 3 != 0:  # Process every 2nd frame
-                continue
-            """
-            # YOLO inference
-            results = self.model(frame, verbose=False, imgsz=320, conf=0.6, iou=0.6)[0]
-            self._process_results(results)
-            self._draw_boxes(frame, results)
-            
-            # Calculate and draw FPS
+
+            frame = self.raw_frame.copy()
+            results = self.model(frame, verbose=False, imgsz=320, conf=0.5, iou=0.5)[0]
+
+            # Temporal stability filter
+            if len(results.boxes) > 0:
+                self.stable_count += 1
+                self.last_results = results
+                if self.stable_count >= STABILITY_FRAMES:
+                    self.stable_results = results
+            else:
+                self.stable_count = 0
+                self.stable_results = None
+
+            # Process and draw stable results only
+            draw_frame = frame.copy()
+            if self.stable_results is not None:
+                self._process_results(self.stable_results)
+                self._draw_boxes(draw_frame, self.stable_results)
+            else:
+                # Still need to update status when no detections
+                self._process_results(results)
+
+            # FPS overlay
             curr_time = time.time()
             self.fps = round(1 / (curr_time - prev_time), 1)
             prev_time = curr_time
-            cv2.putText(frame, f"FPS: {self.fps}", (10, 30),
+            cv2.putText(draw_frame, f"FPS: {self.fps}", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            
-            # Encode frame
-            ret, jpeg = cv2.imencode(".jpg", frame)
+
+            ret, jpeg = cv2.imencode(".jpg", draw_frame)
             if ret:
                 self.latest_frame = jpeg.tobytes()
 

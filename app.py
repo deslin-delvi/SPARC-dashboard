@@ -32,7 +32,7 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 # WebSocket support
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins='*')
+socketio = SocketIO(app, async_mode='threading', cors_allowed_origins='*')
 
 # Hardware controller (unchanged)
 gate_controller = GateController(mode='direct', servo_pin=18, relay_pin=23, led_active_low=True)
@@ -60,6 +60,47 @@ def cleanup_on_exit():
 
 atexit.register(cleanup_on_exit)
 
+# ─────────────────────────────────────────────────────────────
+# Background gate control loop
+# Runs gate logic continuously so relay state updates via
+# WebSocket the instant PPE status changes — no HTTP polling needed.
+# ─────────────────────────────────────────────────────────────
+def gate_control_loop():
+    global relay_state, gate_closed_at
+    while True:
+        try:
+            with gate_state_lock:
+                if not override:
+                    current = yolo.latest_status.copy()
+                    previous_relay_state = relay_state
+
+                    if current.get("ppe_status") == "OK":
+                        elapsed = time_module.time() - gate_closed_at
+                        if elapsed >= COOLDOWN_SECONDS:
+                            relay_state = "OPEN"
+                    else:
+                        if relay_state != "CLOSED":
+                            gate_closed_at = time_module.time()
+                        relay_state = "CLOSED"
+
+                    if previous_relay_state != relay_state:
+                        gate_controller.set_state(relay_state)
+                        yolo.update_gate_state(relay_state)  # already emits gate_update
+                        elapsed   = time_module.time() - gate_closed_at
+                        remaining = max(0.0, COOLDOWN_SECONDS - elapsed)
+                        socketio.emit('override_update', {
+                            "override":           False,
+                            "relay":              relay_state,
+                            "message":            "",
+                            "cooldown_active":    remaining > 0,
+                            "cooldown_remaining": round(remaining, 1)
+                        })
+        except Exception as e:
+            print(f"❌ Gate control loop error: {e}")
+        time_module.sleep(0.1)
+
+_gate_thread = threading.Thread(target=gate_control_loop, daemon=True)
+_gate_thread.start()
 
 # ─────────────────────────────────────────────────────────────
 # Auth routes  (UNCHANGED)
@@ -87,6 +128,36 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('login'))
+
+
+# ─────────────────────────────────────────────────────────────
+# WebSocket: push current state to a client the moment they connect
+# This ensures dots/badges are correct without needing a status change
+# ─────────────────────────────────────────────────────────────
+from flask_socketio import emit
+
+@socketio.on('connect')
+def on_connect():
+    current = yolo.latest_status.copy()
+    elapsed   = time_module.time() - gate_closed_at
+    remaining = max(0.0, COOLDOWN_SECONDS - elapsed)
+
+    emit('ppe_update', {
+        **current,
+        'relay':        relay_state,
+        'last_updated': datetime.now().strftime('%H:%M:%S')
+    })
+    emit('gate_update', {
+        'relay':        relay_state,
+        'last_updated': datetime.now().strftime('%H:%M:%S')
+    })
+    emit('override_update', {
+        'override':           override,
+        'relay':              relay_state,
+        'message':            '',
+        'cooldown_active':    remaining > 0 and not override,
+        'cooldown_remaining': round(remaining, 1)
+    })
 
 
 # ─────────────────────────────────────────────────────────────
