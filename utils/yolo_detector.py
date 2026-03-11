@@ -193,7 +193,7 @@ class YOLOProcessor:
         
         # 🔧 CRITICAL: Only mark as NOT_OK if negative classes are detected
         # This means there's actually a person without proper PPE
-        has_violation = no_helmet or no_gloves or no_boots
+        has_violation = no_helmet #or no_gloves or no_boots
         
         # Determine status
         if has_violation:

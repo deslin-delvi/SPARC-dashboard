@@ -39,6 +39,14 @@
                 <span class="badge bg-danger">
                     <i class="bi bi-camera-video"></i> CCTV DETECTION
                 </span>
+                {% elif violation.violation_type == 'rtsp_auto_capture' %}
+                <span class="badge bg-info text-dark">
+                    <i class="bi bi-camera-video-fill"></i> CCTV AUTO
+                </span>
+                {% elif violation.violation_type == 'rtsp_manual_capture' %}
+                <span class="badge badge-cctv-manual">
+                    <i class="bi bi-camera-fill"></i> CCTV MANUAL
+                </span>
                 {% endif %}
             </div>
             
@@ -88,7 +96,15 @@
                     <span class="badge bg-info fs-6">
                         <i class="bi bi-gear"></i> AUTO MODE
                     </span>
-                    {% else %}
+                    {% elif violation.gate_action == 'RTSP_AUTO' %}
+                    <span class="badge bg-info text-dark fs-6">
+                        <i class="bi bi-camera-video-fill"></i> CCTV AUTO CAPTURE
+                    </span>
+                    {% elif violation.gate_action == 'RTSP_MANUAL' %}
+                    <span class="badge badge-cctv-manual fs-6">
+                        <i class="bi bi-camera-fill"></i> SUPERVISOR CAPTURE
+                    </span>
+                    {% elif violation.gate_action and violation.gate_action != 'N/A' %}
                     <span class="badge bg-secondary fs-6">
                         {{ violation.gate_action }}
                     </span>
@@ -102,7 +118,7 @@
                 {% endif %}
                 
                 <!-- 🔧 FIX: Show auto-generated notes as read-only text, not in textarea -->
-                {% if violation.notes and (violation.violation_type == 'manual_override' or violation.violation_type == 'auto_mode_restored') %}
+                {% if violation.notes and (violation.violation_type in ['manual_override', 'auto_mode_restored', 'rtsp_auto_capture', 'rtsp_manual_capture']) %}
                 <div class="alert alert-light py-2 px-2 mb-2" style="font-size: 0.85rem;">
                     <i class="bi bi-info-circle"></i> {{ violation.notes }}
                 </div>

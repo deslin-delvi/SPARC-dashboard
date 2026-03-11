@@ -273,7 +273,11 @@ body {
     }
 }
 
-/* Better navbar styling */
+/* CCTV manual supervisor capture badge (purple — no Bootstrap utility for this) */
+.badge-cctv-manual {
+    background-color: #6f42c1;
+    color: #fff;
+}
 .navbar-nav .nav-link {
     padding: 0.5rem 0.75rem;
     border-radius: 0.375rem;

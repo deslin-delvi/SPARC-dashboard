@@ -61,6 +61,10 @@ class RTSPStream:
         self.fps         = 0.0
         self.prev_status = "UNKNOWN"
 
+        # Auto-capture: cooldown prevents flooding disk/DB
+        self.AUTO_CAPTURE_COOLDOWN = 30   # seconds between auto-saves per stream
+        self._last_auto_capture    = 0.0
+
     # ── public API ──────────────────────────────────────────
     def start(self):
         if self._running:
@@ -212,6 +216,14 @@ class RTSPStream:
             "has_violation": has_violation,
         })
 
+        # Auto-capture when a violation is active (cooldown-guarded)
+        if has_violation:
+            missing = []
+            if no_helmet: missing.append("helmet")
+            if no_gloves: missing.append("gloves")
+            if no_boots:  missing.append("boots")
+            self._auto_capture_violation(missing)
+
     def _draw_boxes(self, frame, results):
         for b in results.boxes:
             x1, y1, x2, y2 = map(int, b.xyxy[0])
@@ -230,6 +242,78 @@ class RTSPStream:
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame, label, (x1, y1 - 5),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
+    def _auto_capture_violation(self, missing_items: list):
+        """
+        Auto-saves a violation frame + DB record when YOLO detects a PPE breach.
+        Cooldown (AUTO_CAPTURE_COOLDOWN) prevents flooding disk and DB.
+        Respects the startup grace period used by the stream.
+        Image saved at 60% JPEG quality (~30-50 KB each).
+        """
+        now = time.time()
+
+        # Respect startup grace — _start_time is set on each (re)connect
+        if self._start_time and (now - self._start_time) < self.STARTUP_GRACE:
+            return
+
+        # Cooldown guard — one capture per camera per COOLDOWN window
+        if (now - self._last_auto_capture) < self.AUTO_CAPTURE_COOLDOWN:
+            return
+
+        if not isinstance(self.latest_frame, bytes) or len(self.latest_frame) == 0:
+            return
+
+        timestamp  = datetime.now()
+        ts_str     = timestamp.strftime("%Y%m%d_%H%M%S")
+        filename   = f"rtsp_auto_{self.camera_id}_{ts_str}.jpg"
+        saved      = False
+
+        try:
+            os.makedirs(self.violations_dir, exist_ok=True)
+            nparr    = np.frombuffer(self.latest_frame, np.uint8)
+            frame_np = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if frame_np is not None:
+                path  = os.path.join(self.violations_dir, filename)
+                saved = cv2.imwrite(path, frame_np, [cv2.IMWRITE_JPEG_QUALITY, 60])
+        except Exception as e:
+            print(f"❌ Auto-capture save error [{self.name}]: {e}")
+            return
+
+        if not saved:
+            return
+
+        self._last_auto_capture = now   # update only after a successful save
+
+        try:
+            with self.flask_app.app_context():
+                record = Violation(
+                    timestamp      = timestamp,
+                    violation_type = "rtsp_auto_capture",
+                    missing_items  = ", ".join(missing_items) if missing_items else "N/A",
+                    image_path     = filename,
+                    gate_action    = "RTSP_AUTO",
+                    operator_id    = None,
+                    notes          = (
+                        f"[CCTV:{self.name}] Auto-detected PPE violation. "
+                        f"Missing: {', '.join(missing_items)}"
+                    ),
+                )
+                db.session.add(record)
+                db.session.commit()
+                print(f"📸 Auto-capture logged [{self.name}]: {filename}")
+
+                if self.socketio:
+                    self.socketio.emit('rtsp_violation', {
+                        "camera_id":   self.camera_id,
+                        "camera_name": self.name,
+                        "ppe_status":  "NOT_OK",
+                        "missing":     missing_items,
+                        "image":       filename,
+                        "time":        timestamp.strftime('%H:%M:%S'),
+                        "auto":        True,
+                    })
+        except Exception as e:
+            print(f"❌ Auto-capture DB error [{self.name}]: {e}")
 
     def capture_violation(self, supervisor_id, notes=""):
         """
@@ -272,7 +356,7 @@ class RTSPStream:
                     violation_type = "rtsp_manual_capture",
                     missing_items  = ", ".join(missing_items) if missing_items else "N/A",
                     image_path     = image_filename,
-                    gate_action    = "N/A",
+                    gate_action    = "RTSP_MANUAL",
                     operator_id    = supervisor_id,
                     notes          = (
                         notes or
