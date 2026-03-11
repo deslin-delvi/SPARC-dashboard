@@ -41,8 +41,10 @@ relay_state = "CLOSED"
 override = False
 
 import time as time_module
-COOLDOWN_SECONDS = 5          # seconds gate stays closed after a violation
-gate_closed_at: float = 0.0  # timestamp of last auto-close
+COOLDOWN_SECONDS   = 5          # seconds gate stays closed after a violation
+ENTRY_GRACE_SECONDS = 3        # seconds gate stays open after auto-open (worker entry time)
+gate_closed_at: float = 0.0   # timestamp of last auto-close
+gate_opened_at: float = 0.0   # timestamp of last auto-open
 
 # Primary USB camera YOLO processor (unchanged)
 yolo = YOLOProcessor(model_path="models/best.pt", camera_index=0, flask_app=app, socketio=socketio)
@@ -66,7 +68,7 @@ atexit.register(cleanup_on_exit)
 # WebSocket the instant PPE status changes — no HTTP polling needed.
 # ─────────────────────────────────────────────────────────────
 def gate_control_loop():
-    global relay_state, gate_closed_at
+    global relay_state, gate_closed_at, gate_opened_at
     while True:
         try:
             with gate_state_lock:
@@ -77,11 +79,16 @@ def gate_control_loop():
                     if current.get("ppe_status") == "OK":
                         elapsed = time_module.time() - gate_closed_at
                         if elapsed >= COOLDOWN_SECONDS:
+                            if relay_state != "OPEN":
+                                gate_opened_at = time_module.time()  # record auto-open time
                             relay_state = "OPEN"
                     else:
-                        if relay_state != "CLOSED":
-                            gate_closed_at = time_module.time()
-                        relay_state = "CLOSED"
+                        # Only close if the entry grace period has elapsed since last auto-open
+                        entry_elapsed = time_module.time() - gate_opened_at
+                        if entry_elapsed >= ENTRY_GRACE_SECONDS:
+                            if relay_state != "CLOSED":
+                                gate_closed_at = time_module.time()
+                            relay_state = "CLOSED"
 
                     if previous_relay_state != relay_state:
                         gate_controller.set_state(relay_state)
