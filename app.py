@@ -41,8 +41,8 @@ relay_state = "CLOSED"
 override = False
 
 import time as time_module
-COOLDOWN_SECONDS   = 5          # seconds gate stays closed after a violation
-ENTRY_GRACE_SECONDS = 3        # seconds gate stays open after auto-open (worker entry time)
+COOLDOWN_SECONDS   = 3          # seconds gate stays closed after a violation
+ENTRY_GRACE_SECONDS = 3        # seconds gate stays open after auto-open
 gate_closed_at: float = 0.0   # timestamp of last auto-close
 gate_opened_at: float = 0.0   # timestamp of last auto-open
 
