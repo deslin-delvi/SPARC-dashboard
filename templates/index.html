@@ -1,36 +1,102 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="row g-4">
-  <!-- Left Column: Video Feed -->
+<!-- Stat Row: 4 metric cards -->
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Active Violations</div>
+      <div class="stat-value" id="stat-violations">--</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Captures Today</div>
+      <div class="stat-value" id="stat-captures">--</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Entries Today</div>
+      <div class="stat-value" id="stat-entries">--</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-value live" id="stat-uptime">LIVE</div>
+      <div class="stat-label">System Uptime</div>
+    </div>
+  </div>
+</div>
+
+<!-- Main 2-column grid -->
+<div class="row g-3">
+
+  <!-- LEFT col -->
   <div class="col-12 col-lg-8">
-    <div class="card shadow-sm" style="overflow: visible;">
-      <div class="card-header bg-primary text-white">
-        <i class="bi bi-camera-video"></i> Live Video Feed
+
+    <!-- Camera Feed Card -->
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-camera-video me-2"></i>CAM-01 — LIVE FEED</span>
+        <span class="badge badge-rec">● REC</span>
       </div>
-      <div class="card-body p-0 bg-dark" style="overflow: visible; border-radius: 0 0 0.375rem 0.375rem;">
-      <div class="video-container" style="line-height:0; border-radius: 0 0 0.375rem 0.375rem; overflow: hidden;">
+      <div class="card-body p-0" style="overflow: visible; border-radius: 0 0 6px 6px;">
+        <div class="video-container" style="line-height:0; border-radius: 0 0 6px 6px; overflow: hidden;">
           <img src="{{ url_for('video_feed') }}"
-              alt="Video Feed"
-              id="video-feed"
-              style="display:block; width:100%; height:auto;">
+               alt="Video Feed"
+               id="video-feed"
+               style="display:block; width:100%; height:auto;">
           <div class="video-overlay">
             <span class="badge bg-danger pulse">DETECTION ACTIVE</span>
+          </div>
+          <span class="scada-overlay top-left">CAM-01 | 1280×720</span>
+          <span class="scada-overlay top-right">30 FPS</span>
+          <span class="scada-overlay bottom-left">192.168.1.150</span>
+          <span class="scada-overlay bottom-right" id="feed-status-corner">PPE OK</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PPE Detection Status Card -->
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-shield-check me-2"></i>PPE DETECTION STATUS</span>
+        <span class="badge bg-secondary" id="ppe-summary-badge">MONITORING</span>
+      </div>
+      <div class="card-body p-0">
+        <div class="ppe-checklist">
+          <div class="ppe-item" id="helmet-status">
+            <i class="bi bi-circle-fill text-secondary"></i>
+            <span>Hard Hat</span>
+            <i class="bi bi-dash-lg text-secondary ms-auto"></i>
+          </div>
+          <div class="ppe-item" id="gloves-status">
+            <i class="bi bi-circle-fill text-secondary"></i>
+            <span>Safety Gloves</span>
+            <i class="bi bi-dash-lg text-secondary ms-auto"></i>
+          </div>
+          <div class="ppe-item" id="boots-status">
+            <i class="bi bi-circle-fill text-secondary"></i>
+            <span>Safety Boots</span>
+            <i class="bi bi-dash-lg text-secondary ms-auto"></i>
           </div>
         </div>
       </div>
     </div>
+
   </div>
 
-  <!-- Right Column: Status, Relay, Activity -->
+  <!-- RIGHT col -->
   <div class="col-12 col-lg-4">
-    <!-- PPE Status Card -->
-    <div class="card shadow-sm mb-4">
-      <div class="card-header bg-success text-white">
-        <i class="bi bi-person-check"></i> PPE Status
+
+    <!-- Main PPE Status Alert -->
+    <div class="card mb-3">
+      <div class="card-header">
+        <i class="bi bi-person-check me-2"></i>PPE STATUS
       </div>
       <div class="card-body">
-        <div class="status-indicator mb-3" id="main-status">
+        <div class="status-indicator" id="main-status">
           <div class="alert alert-success d-flex align-items-center" role="alert">
             <i class="bi bi-check-circle-fill me-2 fs-4"></i>
             <div>
@@ -39,70 +105,42 @@
             </div>
           </div>
         </div>
-
-        <!-- PPE Items Checklist -->
-        <div class="ppe-checklist">
-          <div class="ppe-item" id="helmet-status">
-            <i class="bi bi-circle-fill text-success"></i>
-            <span>Hard Hat</span>
-            <i class="bi bi-check-lg text-success ms-auto"></i>
-          </div>
-          <div class="ppe-item" id="gloves-status">
-            <i class="bi bi-circle-fill text-success"></i>
-            <span>Safety Gloves</span>
-            <i class="bi bi-check-lg text-success ms-auto"></i>
-          </div>
-          <div class="ppe-item" id="boots-status">
-            <i class="bi bi-circle-fill text-success"></i>
-            <span>Safety Boots</span>
-            <i class="bi bi-check-lg text-success ms-auto"></i>
-          </div>
-        </div>
-
-        <div class="text-muted text-center mt-3">
-          <small>Last Updated: <span id="last-updated">--:--:--</span></small>
-        </div>
       </div>
     </div>
 
-    <!-- Relay Control Card (compact) -->
-    <div class="card shadow-sm mb-4">
+    <!-- Gate Control Card -->
+    <div class="card mb-3">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <span>Relay / Gate Control</span>
-        <span id="relay-status" class="status-pill">UNKNOWN</span>
+        <span><i class="bi bi-door-closed me-2"></i>GATE CONTROL</span>
+        <span id="relay-status" class="status-pill relay-closed">CLOSED</span>
       </div>
-      <div class="card-body relay-status">
-        <p class="mb-2">
-          <strong>Mode:</strong>
-          <span id="override-badge" class="status-pill override-off">AUTO MODE</span>
-        </p>
-
-        <p id="override-message" class="status-subtext mb-3">
-          <!-- Last manual override message will appear here -->
-        </p>
-
-        <!-- ADD: Cooldown indicator -->
-        <div id="cooldown-box" class="alert alert-warning py-2 text-center mb-2 d-none">
-            <i class="bi bi-hourglass-split me-1"></i>
-            Gate locked — reopening in <strong id="cooldown-seconds">5</strong>s
+      <div class="card-body">
+        <div class="mb-3">
+          <small class="text-secondary" style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; letter-spacing:0.04em;">MODE</small>
+          <div class="mt-1">
+            <span id="override-badge" class="status-pill override-off">AUTO MODE</span>
+          </div>
+          <p id="override-message" class="status-subtext mt-1 mb-0"></p>
         </div>
 
-        <button id="relay-toggle-btn" class="btn btn-outline-primary w-100">
-          Toggle Gate (Supervisor Override)
-        </button>
+        <div id="cooldown-box" class="alert alert-warning py-2 text-center mb-2 d-none">
+          <i class="bi bi-hourglass-split me-1"></i>
+          Gate locked — reopening in <strong id="cooldown-seconds">5</strong>s
+        </div>
 
-        <!-- Back to automatic PPE control -->
+        <button id="relay-toggle-btn" class="btn btn-outline-primary w-100 mb-2">
+          <i class="bi bi-lock"></i> LOCK / UNLOCK
+        </button>
         <button id="auto-mode-btn" class="btn btn-outline-secondary w-100">
-          Return to Automatic Mode
+          <i class="bi bi-arrow-clockwise"></i> RETURN TO AUTO
         </button>
-
       </div>
     </div>
 
     <!-- Activity Log Card -->
-    <div class="card shadow-sm">
-      <div class="card-header bg-info text-white">
-        <i class="bi bi-clock-history"></i> Recent Activity
+    <div class="card">
+      <div class="card-header">
+        <i class="bi bi-clock-history me-2"></i>ACTIVITY LOG
       </div>
       <div class="card-body p-0">
         <div class="event-log">
@@ -111,7 +149,13 @@
           </ul>
         </div>
       </div>
+      <div class="card-footer text-center">
+        <small style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--text-mono);">
+          Last sync: <span id="last-updated">--:--:--</span>
+        </small>
+      </div>
     </div>
+
   </div>
 </div>
 {% endblock %}

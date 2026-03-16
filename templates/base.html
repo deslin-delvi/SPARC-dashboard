@@ -4,50 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Substation Safety Dashboard{% endblock %}</title>
-    
-    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Custom CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 </head>
-<body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+<body class="scada-body">
+    <nav class="navbar navbar-expand-lg navbar-dark sparc-navbar">
         <div class="container-fluid">
-            <span class="navbar-brand mb-0 h1">
+            <span class="navbar-brand sparc-brand mb-0 h1">
                 <i class="bi bi-shield-check"></i> SPARC - Substation Protection and Risk Control
-                <span class="badge bg-success ms-2">LIVE</span>
+                <span class="badge badge-live-system ms-2">LIVE</span>
             </span>
-            
-            <!-- Mobile Toggle -->
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" 
                     data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            
-            <!-- User Navigation -->
             {% if current_user.is_authenticated %}
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item mx-2">
-                        <a class="nav-link" href="/">
+                        <a class="nav-link sparc-nav-link" href="/">
                             <i class="bi bi-house"></i> Live Dashboard
                         </a>
                     </li>
                     <li class="nav-item mx-2">
-                        <a class="nav-link" href="/violations">
+                        <a class="nav-link sparc-nav-link" href="/violations">
                             <i class="bi bi-exclamation-triangle"></i> Violations
                         </a>
                     </li>
                     <li class="nav-item mx-2">
-                        <a class="nav-link" href="/cameras">
+                        <a class="nav-link sparc-nav-link" href="/cameras">
                             <i class="bi bi-camera-video"></i> CCTV Cameras
                         </a>
                     </li>
@@ -66,19 +53,11 @@
             {% endif %}
         </div>
     </nav>
-
-    <!-- Main Content -->
     <div class="container-fluid py-4">
         {% block content %}{% endblock %}
     </div>
-
-    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Socket.IO client -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    
-    <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </body>
 </html>

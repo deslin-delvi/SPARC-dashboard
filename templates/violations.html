@@ -5,14 +5,14 @@
 {% block content %}
 <div class="row justify-content-between align-items-center mb-4">
     <div class="col">
-        <h2 class="mb-0">
-            <i class="bi bi-exclamation-triangle text-danger me-2"></i>
+        <h2 class="mb-0" style="font-family:'Rajdhani',system-ui,sans-serif; font-weight:700;">
+            <i class="bi bi-exclamation-triangle me-2" style="color:var(--amber);"></i>
             Safety Violations ({{ violations.total }})
         </h2>
     </div>
     <div class="col-auto">
-        <span class="badge bg-info me-2">{{ violations.per_page }} per page</span>
-        <span class="badge bg-secondary">Page {{ violations.page }}/{{ violations.pages }}</span>
+        <span class="badge bg-info mono-badge me-2">{{ violations.per_page }} per page</span>
+        <span class="badge bg-secondary mono-badge">Page {{ violations.page }}/{{ violations.pages }}</span>
     </div>
 </div>
 
@@ -20,31 +20,31 @@
 <div class="row g-4 mb-5">
     {% for violation in violations.items %}
     <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
-        <div class="card h-100 shadow-sm border-0 hover-shadow">
+        <div class="card h-100 hover-shadow">
             <!-- Violation Type Badge -->
             <div class="position-absolute top-0 start-0 m-2" style="z-index: 10;">
                 {% if violation.violation_type == 'manual_override' %}
-                <span class="badge bg-warning text-dark">
+                <span class="badge bg-warning text-dark mono-badge">
                     <i class="bi bi-hand-index"></i> MANUAL OVERRIDE
                 </span>
                 {% elif violation.violation_type == 'auto_mode_restored' %}
-                <span class="badge bg-info">
+                <span class="badge bg-info mono-badge">
                     <i class="bi bi-arrow-clockwise"></i> AUTO RESTORED
                 </span>
                 {% elif violation.violation_type == 'ppe_incomplete' %}
-                <span class="badge bg-danger">
+                <span class="badge bg-danger mono-badge">
                     <i class="bi bi-shield-x"></i> PPE VIOLATION
                 </span>
                 {% elif violation.violation_type == 'rtsp_auto_detected' %}
-                <span class="badge bg-danger">
+                <span class="badge bg-danger mono-badge">
                     <i class="bi bi-camera-video"></i> CCTV DETECTION
                 </span>
                 {% elif violation.violation_type == 'rtsp_auto_capture' %}
-                <span class="badge bg-info text-dark">
+                <span class="badge bg-info text-dark mono-badge">
                     <i class="bi bi-camera-video-fill"></i> CCTV AUTO
                 </span>
                 {% elif violation.violation_type == 'rtsp_manual_capture' %}
-                <span class="badge badge-cctv-manual">
+                <span class="badge badge-cctv-manual mono-badge">
                     <i class="bi bi-camera-fill"></i> CCTV MANUAL
                 </span>
                 {% endif %}
@@ -56,63 +56,63 @@
                      class="card-img-top" style="height: 200px; object-fit: cover;"
                      alt="Violation at {{ violation.timestamp.strftime('%H:%M:%S') }}">
                 <div class="position-absolute top-0 end-0 m-2">
-                    <span class="badge bg-danger">PPE FAIL</span>
+                    <span class="badge bg-danger mono-badge">PPE FAIL</span>
                 </div>
 
             {% else %}
-            <div class="bg-secondary text-white d-flex align-items-center justify-content-center" style="height: 200px;">
-                <i class="bi bi-camera-video-off display-4 opacity-50"></i>
+            <div style="height: 200px; background: var(--bg-header); display:flex; align-items:center; justify-content:center;">
+                <i class="bi bi-camera-video-off display-4" style="color: var(--text-secondary); opacity:0.4;"></i>
             </div>
             {% endif %}
             
             <div class="card-body d-flex flex-column p-3">
-                <h6 class="card-title mb-2">
-                    <i class="bi bi-clock me-1"></i>
-                    <strong>{{ violation.timestamp.strftime('%Y-%m-%d') }}</strong>
+                <h6 class="card-title mb-2" style="font-family:'JetBrains Mono',monospace; font-size:0.82rem; color:var(--text-mono);">
+                    <i class="bi bi-clock me-1" style="color:var(--amber);"></i>
+                    <strong style="color:var(--text-primary);">{{ violation.timestamp.strftime('%Y-%m-%d') }}</strong>
                     {{ violation.timestamp.strftime('%H:%M:%S') }}
                 </h6>
                 
                 {% if violation.missing_items and violation.missing_items != 'N/A' %}
                 <div class="mb-2">
-                    <i class="bi bi-x-circle text-danger me-1"></i>
-                    <span class="text-danger fw-medium">{{ violation.missing_items }}</span>
+                    <i class="bi bi-x-circle me-1" style="color:var(--danger);"></i>
+                    <span style="color:var(--danger); font-weight:500; font-family:'JetBrains Mono',monospace; font-size:0.82rem;">{{ violation.missing_items }}</span>
                 </div>
                 {% endif %}
                 
                 <div class="mb-3">
                     {% if violation.gate_action == 'DENIED' %}
-                    <span class="badge bg-danger fs-6">
+                    <span class="badge bg-danger fs-6 mono-badge">
                         <i class="bi bi-lock"></i> {{ violation.gate_action }}
                     </span>
                     {% elif violation.gate_action == 'MANUAL_OPEN' %}
-                    <span class="badge bg-success fs-6">
+                    <span class="badge bg-success fs-6 mono-badge">
                         <i class="bi bi-unlock"></i> GATE OPENED
                     </span>
                     {% elif violation.gate_action == 'MANUAL_CLOSE' %}
-                    <span class="badge bg-warning text-dark fs-6">
+                    <span class="badge bg-warning text-dark fs-6 mono-badge">
                         <i class="bi bi-lock"></i> GATE CLOSED
                     </span>
                     {% elif violation.gate_action == 'AUTO_MODE' %}
-                    <span class="badge bg-info fs-6">
+                    <span class="badge bg-info fs-6 mono-badge">
                         <i class="bi bi-gear"></i> AUTO MODE
                     </span>
                     {% elif violation.gate_action == 'RTSP_AUTO' %}
-                    <span class="badge bg-info text-dark fs-6">
+                    <span class="badge bg-info text-dark fs-6 mono-badge">
                         <i class="bi bi-camera-video-fill"></i> CCTV AUTO CAPTURE
                     </span>
                     {% elif violation.gate_action == 'RTSP_MANUAL' %}
-                    <span class="badge badge-cctv-manual fs-6">
+                    <span class="badge badge-cctv-manual fs-6 mono-badge">
                         <i class="bi bi-camera-fill"></i> SUPERVISOR CAPTURE
                     </span>
                     {% elif violation.gate_action and violation.gate_action != 'N/A' %}
-                    <span class="badge bg-secondary fs-6">
+                    <span class="badge bg-secondary fs-6 mono-badge">
                         {{ violation.gate_action }}
                     </span>
                     {% endif %}
                 </div>
                 
                 {% if violation.operator_id %}
-                <small class="text-muted mb-2">
+                <small style="color:var(--text-secondary); font-family:'JetBrains Mono',monospace; font-size:0.75rem;" class="mb-2">
                     <i class="bi bi-person-check"></i> Operator ID: {{ violation.operator_id }}
                 </small>
                 {% endif %}
@@ -127,7 +127,7 @@
                 
                 <!-- Supervisor Notes with Save Button -->
                 <div class="mt-auto">
-                    <label class="form-label small text-muted mb-1">
+                    <label class="form-label small mb-1" style="color:var(--text-secondary);">
                         <i class="bi bi-pencil-square"></i> Supervisor Notes:
                     </label>
                     <textarea class="form-control form-control-sm mb-2" 
@@ -155,9 +155,9 @@
     {% else %}
     <div class="col-12">
         <div class="text-center py-5">
-            <i class="bi bi-check-circle display-1 text-success mb-4"></i>
-            <h3 class="text-success mb-3">🎉 Perfect Safety Record!</h3>
-            <p class="lead text-muted">No PPE violations detected yet.</p>
+            <i class="bi bi-check-circle display-1 mb-4" style="color:var(--success);"></i>
+            <h3 style="color:var(--success);" class="mb-3">🎉 Perfect Safety Record!</h3>
+            <p class="lead" style="color:var(--text-secondary);">No PPE violations detected yet.</p>
         </div>
     </div>
     {% endfor %}
@@ -187,16 +187,6 @@
     </ul>
 </nav>
 {% endif %}
-
-<style>
-.hover-shadow {
-    transition: all 0.3s ease;
-}
-.hover-shadow:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15) !important;
-}
-</style>
 
 <script>
 // Simple save function with clear visual feedback
