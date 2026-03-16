@@ -253,15 +253,15 @@ body.scada-body {
 .btn-secondary,
 .btn-outline-secondary {
   background:   transparent;
-  border:       1px solid var(--border);
-  color:        var(--text-secondary);
+  border:       1px solid var(--amber);
+  color:        var(--amber);
 }
 
 .btn-secondary:hover,
 .btn-outline-secondary:hover {
   border-color: var(--amber);
-  color:        var(--amber);
-  background:   transparent;
+  color:        var(--bg-base);
+  background:   var(--amber);
 }
 
 .btn-danger,
@@ -953,15 +953,15 @@ html[data-theme="light"] body {
 
 html[data-theme="light"] .navbar,
 html[data-theme="light"] .sparc-navbar {
-  background: var(--bg-header) !important;
-  border-bottom: 1px solid var(--border);
+  background: #1a5c8a !important;
+  border-bottom: 1px solid #14496e !important;
 }
 
 html[data-theme="light"] .sparc-brand,
 html[data-theme="light"] .nav-link,
 html[data-theme="light"] .navbar-text,
 html[data-theme="light"] .sparc-nav-link {
-  color: var(--text-primary) !important;
+  color: #ffffff !important;
 }
 
 html[data-theme="light"] .card,
@@ -1076,20 +1076,22 @@ html[data-theme="light"] .page-item.active .page-link {
 
 /* ── Light mode readability improvements ── */
 
+/* Card headers */
 html[data-theme="light"] .card-header {
-  background-color: #d6e8f7 !important;
-  color: #1a3a5c !important;
-  border-left-color: #5a9fd4 !important;
-  border-bottom-color: #b0cfe8 !important;
+  background-color: #b8d8f0 !important;  /* was #d6e8f7 */
+  color: #0f2d4a !important;             /* was #1a3a5c */
+  border-left-color: #2e7db5 !important; /* was #5a9fd4 */
+  border-bottom-color: #8bbcdc !important; /* was #b0cfe8 */
 }
 
 html[data-theme="light"] .card-header i,
 html[data-theme="light"] .card-header span,
 html[data-theme="light"] .card-header small,
 html[data-theme="light"] .card-header strong {
-  color: #1a3a5c !important;
+  color: #0f2d4a !important; /* was #1a3a5c */
 }
 
+/* Stat card labels */
 html[data-theme="light"] .stat-card .stat-label {
   color: #2a2a2a !important;
   font-weight: 600 !important;
@@ -1118,3 +1120,31 @@ html[data-theme="light"] #auto-mode-btn {
 html[data-theme="light"] #auto-mode-btn:hover {
   background-color: #4a5460 !important;
 }
+/*
+html[data-theme="light"] .navbar,
+html[data-theme="light"] .sparc-navbar {
+  background: #1a5c8a !important;
+  border-bottom: 1px solid #14496e !important;
+}
+
+html[data-theme="light"] .sparc-brand,
+html[data-theme="light"] .nav-link,
+html[data-theme="light"] .navbar-text,
+html[data-theme="light"] .sparc-nav-link {
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .sparc-nav-link:hover {
+  color: #ffd580 !important;
+  background: rgba(255,255,255,0.12) !important;
+}
+
+html[data-theme="light"] .navbar-nav .btn-outline-light {
+  border-color: rgba(255,255,255,0.5) !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .navbar-nav .btn-outline-light:hover {
+  background: rgba(255,255,255,0.15) !important;
+}
+  */
